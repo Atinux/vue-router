@@ -362,11 +362,13 @@ function guardEvent (e) {
   if (e.defaultPrevented) { return }
   // don't redirect on right click
   /* istanbul ignore if */
-  if (e.button !== 0) { return }
+  if (e.button !== undefined && e.button !== 0) { return }
   // don't redirect if `target="_blank"`
   /* istanbul ignore if */
-  var target = e.target.getAttribute('target')
-  if (/\b_blank\b/i.test(target)) { return }
+  if (e.target && e.target.getAttribute) {
+    var target = e.target.getAttribute('target')
+    if (/\b_blank\b/i.test(target)) { return }
+  }
 
   e.preventDefault()
   return true
@@ -1132,6 +1134,9 @@ function createMatcher (routes) {
 
     if (name) {
       var record = nameMap[name]
+      if (process.env.NODE_ENV !== 'production') {
+        warn(record, ("Route with name '" + name + "' does not exist"))
+      }
       var paramNames = getRouteRegex(record.path).keys
         .filter(function (key) { return !key.optional; })
         .map(function (key) { return key.name; })
@@ -1640,7 +1645,10 @@ function isNumber (v) {
 /*  */
 
 
-var genKey = function () { return String(Date.now()); }
+// use User Timing api (if present) for more accurate key precision
+var Time = inBrowser ? (window.performance || Date) : Date
+
+var genKey = function () { return String(Time.now()); }
 var _key = genKey()
 
 var HTML5History = (function (History) {
@@ -1867,8 +1875,8 @@ function replaceHash (path) {
 
 
 var AbstractHistory = (function (History) {
-  function AbstractHistory (router) {
-    History.call(this, router)
+  function AbstractHistory (router, base) {
+    History.call(this, router, base)
     this.stack = []
     this.index = -1
   }
@@ -1944,7 +1952,7 @@ var VueRouter = function VueRouter (options) {
       this.history = new HashHistory(this, options.base, this.fallback)
       break
     case 'abstract':
-      this.history = new AbstractHistory(this)
+      this.history = new AbstractHistory(this, options.base)
       break
     default:
       process.env.NODE_ENV !== 'production' && assert(false, ("invalid mode: " + mode))
@@ -2053,6 +2061,7 @@ function createHref (base, fullPath, mode) {
 }
 
 VueRouter.install = install
+VueRouter.version = '2.1.1'
 
 if (inBrowser && window.Vue) {
   window.Vue.use(VueRouter)
